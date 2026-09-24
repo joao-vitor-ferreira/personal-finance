@@ -1,0 +1,5 @@
+-- AlterTable
+ALTER TABLE "ImportItem" ALTER COLUMN "amount" DROP NOT NULL,
+ALTER COLUMN "transactionDate" DROP NOT NULL,
+ALTER COLUMN "type" DROP NOT NULL,
+ALTER COLUMN "deduplicationHash" DROP NOT NULL;

@@ -1,0 +1,342 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum AccountType {
+  CHECKING
+  SAVINGS
+  CASH
+  INVESTMENT
+  OTHER
+}
+
+enum CategoryType {
+  INCOME
+  EXPENSE
+  BOTH
+}
+
+enum TransactionType {
+  INCOME
+  EXPENSE
+  TRANSFER
+}
+
+enum TransactionDirection {
+  CREDIT
+  DEBIT
+}
+
+enum TransactionStatus {
+  PENDING
+  COMPLETED
+  CANCELLED
+}
+
+enum InvoiceStatus {
+  OPEN
+  CLOSED
+  PAID
+  OVERDUE
+}
+
+enum RuleField {
+  DESCRIPTION
+}
+
+enum RuleOperator {
+  CONTAINS
+  EQUALS
+  STARTS_WITH
+  ENDS_WITH
+}
+
+enum ImportSourceType {
+  CSV
+}
+
+enum ImportStatus {
+  PREVIEWED
+  PROCESSING
+  CONFIRMED
+  CANCELLED
+}
+
+enum ImportItemStatus {
+  READY
+  DUPLICATE
+  INVALID
+  IMPORTED
+}
+
+model User {
+  id                String               @id @default(uuid()) @db.Uuid
+  name              String               @db.VarChar(120)
+  email             String               @unique @db.VarChar(320)
+  passwordHash      String               @db.VarChar(72)
+  createdAt         DateTime             @default(now()) @db.Timestamptz(3)
+  updatedAt         DateTime             @updatedAt @db.Timestamptz(3)
+  accounts          Account[]
+  creditCards       CreditCard[]
+  categories        Category[]
+  transactions      Transaction[]
+  installmentGroups InstallmentGroup[]
+  transfers         Transfer[]
+  importBatches     ImportBatch[]
+  rules             CategorizationRule[]
+  invoicePayments   InvoicePayment[]
+}
+
+model Account {
+  id                String           @id @default(uuid()) @db.Uuid
+  userId            String           @db.Uuid
+  name              String           @db.VarChar(100)
+  type              AccountType
+  initialBalance    Decimal          @default(0) @db.Decimal(19, 2)
+  currentBalance    Decimal          @default(0) @db.Decimal(19, 2)
+  color             String?          @db.VarChar(7)
+  isActive          Boolean          @default(true)
+  createdAt         DateTime         @default(now()) @db.Timestamptz(3)
+  updatedAt         DateTime         @updatedAt @db.Timestamptz(3)
+  user              User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  transactions      Transaction[]
+  outgoingTransfers Transfer[]       @relation("SourceAccount")
+  incomingTransfers Transfer[]       @relation("DestinationAccount")
+  invoicePayments   InvoicePayment[]
+  importBatches     ImportBatch[]
+
+  @@index([userId, isActive])
+}
+
+model CreditCard {
+  id                String             @id @default(uuid()) @db.Uuid
+  userId            String             @db.Uuid
+  name              String             @db.VarChar(100)
+  brand             String             @db.VarChar(40)
+  lastFourDigits    String             @db.Char(4)
+  creditLimit       Decimal            @db.Decimal(19, 2)
+  closingDay        Int
+  dueDay            Int
+  isActive          Boolean            @default(true)
+  createdAt         DateTime           @default(now()) @db.Timestamptz(3)
+  updatedAt         DateTime           @updatedAt @db.Timestamptz(3)
+  user              User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  invoices          Invoice[]
+  transactions      Transaction[]
+  installmentGroups InstallmentGroup[]
+  importBatches     ImportBatch[]
+
+  @@index([userId, isActive])
+}
+
+model Invoice {
+  id             String          @id @default(uuid()) @db.Uuid
+  creditCardId   String          @db.Uuid
+  referenceMonth Int
+  referenceYear  Int
+  closingDate    DateTime        @db.Date
+  dueDate        DateTime        @db.Date
+  status         InvoiceStatus   @default(OPEN)
+  totalAmount    Decimal         @default(0) @db.Decimal(19, 2)
+  paidAmount     Decimal         @default(0) @db.Decimal(19, 2)
+  createdAt      DateTime        @default(now()) @db.Timestamptz(3)
+  updatedAt      DateTime        @updatedAt @db.Timestamptz(3)
+  creditCard     CreditCard      @relation(fields: [creditCardId], references: [id], onDelete: Restrict)
+  transactions   Transaction[]
+  payment        InvoicePayment?
+
+  @@unique([creditCardId, referenceMonth, referenceYear])
+  @@index([creditCardId, status])
+  @@index([dueDate, status])
+}
+
+model Category {
+  id                String               @id @default(uuid()) @db.Uuid
+  userId            String               @db.Uuid
+  name              String               @db.VarChar(80)
+  type              CategoryType
+  color             String?              @db.VarChar(7)
+  icon              String?              @db.VarChar(50)
+  isActive          Boolean              @default(true)
+  isDefault         Boolean              @default(false)
+  createdAt         DateTime             @default(now()) @db.Timestamptz(3)
+  updatedAt         DateTime             @updatedAt @db.Timestamptz(3)
+  user              User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+  transactions      Transaction[]
+  rules             CategorizationRule[]
+  importItems       ImportItem[]
+  installmentGroups InstallmentGroup[]
+
+  @@unique([userId, name, type])
+  @@index([userId, isActive])
+}
+
+model Transaction {
+  id                 String               @id @default(uuid()) @db.Uuid
+  userId             String               @db.Uuid
+  accountId          String?              @db.Uuid
+  creditCardId       String?              @db.Uuid
+  invoiceId          String?              @db.Uuid
+  categoryId         String?              @db.Uuid
+  description        String               @db.VarChar(255)
+  amount             Decimal              @db.Decimal(19, 2)
+  transactionDate    DateTime             @db.Date
+  type               TransactionType
+  direction          TransactionDirection
+  status             TransactionStatus    @default(COMPLETED)
+  notes              String?              @db.Text
+  externalId         String?              @db.VarChar(255)
+  deduplicationHash  String?              @db.Char(64)
+  installmentGroupId String?              @db.Uuid
+  installmentNumber  Int?
+  totalInstallments  Int?
+  transferId         String?              @db.Uuid
+  createdAt          DateTime             @default(now()) @db.Timestamptz(3)
+  updatedAt          DateTime             @updatedAt @db.Timestamptz(3)
+  user               User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+  account            Account?             @relation(fields: [accountId], references: [id], onDelete: Restrict)
+  creditCard         CreditCard?          @relation(fields: [creditCardId], references: [id], onDelete: Restrict)
+  invoice            Invoice?             @relation(fields: [invoiceId], references: [id], onDelete: Restrict)
+  category           Category?            @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  installmentGroup   InstallmentGroup?    @relation(fields: [installmentGroupId], references: [id], onDelete: Restrict)
+  transfer           Transfer?            @relation(fields: [transferId], references: [id], onDelete: Restrict)
+  importedFrom       ImportItem?
+
+  @@unique([userId, deduplicationHash])
+  @@unique([transferId, direction])
+  @@index([userId, transactionDate])
+  @@index([userId, type, status])
+  @@index([accountId])
+  @@index([creditCardId])
+  @@index([invoiceId])
+  @@index([categoryId])
+  @@index([installmentGroupId])
+}
+
+model InstallmentGroup {
+  id                String        @id @default(uuid()) @db.Uuid
+  userId            String        @db.Uuid
+  creditCardId      String        @db.Uuid
+  categoryId        String?       @db.Uuid
+  description       String        @db.VarChar(255)
+  totalAmount       Decimal       @db.Decimal(19, 2)
+  totalInstallments Int
+  purchaseDate      DateTime      @db.Date
+  createdAt         DateTime      @default(now()) @db.Timestamptz(3)
+  updatedAt         DateTime      @updatedAt @db.Timestamptz(3)
+  user              User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  creditCard        CreditCard    @relation(fields: [creditCardId], references: [id], onDelete: Restrict)
+  category          Category?     @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  transactions      Transaction[]
+
+  @@index([userId, purchaseDate])
+  @@index([creditCardId])
+}
+
+model Transfer {
+  id                   String            @id @default(uuid()) @db.Uuid
+  userId               String            @db.Uuid
+  sourceAccountId      String            @db.Uuid
+  destinationAccountId String            @db.Uuid
+  amount               Decimal           @db.Decimal(19, 2)
+  description          String            @db.VarChar(255)
+  transactionDate      DateTime          @db.Date
+  status               TransactionStatus @default(COMPLETED)
+  createdAt            DateTime          @default(now()) @db.Timestamptz(3)
+  updatedAt            DateTime          @updatedAt @db.Timestamptz(3)
+  user                 User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  sourceAccount        Account           @relation("SourceAccount", fields: [sourceAccountId], references: [id], onDelete: Restrict)
+  destinationAccount   Account           @relation("DestinationAccount", fields: [destinationAccountId], references: [id], onDelete: Restrict)
+  transactions         Transaction[]
+
+  @@index([userId, transactionDate])
+}
+
+model CategorizationRule {
+  id            String       @id @default(uuid()) @db.Uuid
+  userId        String       @db.Uuid
+  name          String       @db.VarChar(100)
+  field         RuleField    @default(DESCRIPTION)
+  operator      RuleOperator
+  value         String       @db.VarChar(255)
+  categoryId    String       @db.Uuid
+  caseSensitive Boolean      @default(false)
+  priority      Int          @default(100)
+  isActive      Boolean      @default(true)
+  createdAt     DateTime     @default(now()) @db.Timestamptz(3)
+  updatedAt     DateTime     @updatedAt @db.Timestamptz(3)
+  user          User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  category      Category     @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+
+  @@index([userId, isActive, priority])
+}
+
+model ImportBatch {
+  id               String           @id @default(uuid()) @db.Uuid
+  userId           String           @db.Uuid
+  accountId        String?          @db.Uuid
+  creditCardId     String?          @db.Uuid
+  sourceType       ImportSourceType @default(CSV)
+  originalFileName String           @db.VarChar(255)
+  fileHash         String           @db.Char(64)
+  status           ImportStatus     @default(PREVIEWED)
+  rowCount         Int              @default(0)
+  importedCount    Int              @default(0)
+  confirmedAt      DateTime?        @db.Timestamptz(3)
+  createdAt        DateTime         @default(now()) @db.Timestamptz(3)
+  updatedAt        DateTime         @updatedAt @db.Timestamptz(3)
+  user             User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  account          Account?         @relation(fields: [accountId], references: [id], onDelete: Restrict)
+  creditCard       CreditCard?      @relation(fields: [creditCardId], references: [id], onDelete: Restrict)
+  items            ImportItem[]
+
+  @@unique([userId, fileHash])
+  @@index([userId, status, createdAt])
+}
+
+model ImportItem {
+  id                String           @id @default(uuid()) @db.Uuid
+  importBatchId     String           @db.Uuid
+  rowNumber         Int
+  description       String           @db.VarChar(255)
+  amount            Decimal?         @db.Decimal(19, 2)
+  transactionDate   DateTime?        @db.Date
+  type              TransactionType?
+  categoryId        String?          @db.Uuid
+  externalId        String?          @db.VarChar(255)
+  occurrenceIndex   Int              @default(0)
+  deduplicationHash String?          @db.Char(64)
+  status            ImportItemStatus @default(READY)
+  validationErrors  Json?
+  transactionId     String?          @unique @db.Uuid
+  createdAt         DateTime         @default(now()) @db.Timestamptz(3)
+  updatedAt         DateTime         @updatedAt @db.Timestamptz(3)
+  importBatch       ImportBatch      @relation(fields: [importBatchId], references: [id], onDelete: Cascade)
+  category          Category?        @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  transaction       Transaction?     @relation(fields: [transactionId], references: [id], onDelete: SetNull)
+
+  @@unique([importBatchId, rowNumber])
+  @@index([importBatchId, status])
+  @@index([deduplicationHash])
+}
+
+model InvoicePayment {
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String   @db.Uuid
+  invoiceId String   @unique @db.Uuid
+  accountId String   @db.Uuid
+  amount    Decimal  @db.Decimal(19, 2)
+  paidAt    DateTime @db.Date
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  invoice   Invoice  @relation(fields: [invoiceId], references: [id], onDelete: Restrict)
+  account   Account  @relation(fields: [accountId], references: [id], onDelete: Restrict)
+
+  @@index([userId, paidAt])
+  @@index([accountId])
+}
