@@ -13,7 +13,7 @@ export function Collapsible({ children, title }: PropsWithChildren & { title: st
   const theme = useTheme();
 
   return (
-    <ThemedView>
+    <ThemedView style={styles.themedView}>
       <Pressable
         style={({ pressed }) => [styles.heading, pressed && styles.pressedHeading]}
         onPress={() => setIsOpen((value) => !value)}>
@@ -61,5 +61,14 @@ const styles = StyleSheet.create({
     borderRadius: Spacing.three,
     marginLeft: Spacing.four,
     padding: Spacing.four,
+  },
+  themedView: {
+    borderBottomWidth: 1,
+    borderColor: 'black',
+    paddingBottom: 10,
+  },
+  lastThemedView: {
+    borderBottomWidth: 0,
+    paddingBottom: 0,
   },
 });
