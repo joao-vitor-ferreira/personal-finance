@@ -36,7 +36,7 @@ export default function AppTabs() {
         <NativeTabs.Trigger.Icon sf="gear" md="settings" />
         <NativeTabs.Trigger.Label>Settings</NativeTabs.Trigger.Label>
       </NativeTabs.Trigger>
-      <NativeTabs.Trigger name="(menu)">
+      <NativeTabs.Trigger name="menu">
         <NativeTabs.Trigger.Icon sf="gear" md="menu" />
         <NativeTabs.Trigger.Label>Menu</NativeTabs.Trigger.Label>
       </NativeTabs.Trigger>

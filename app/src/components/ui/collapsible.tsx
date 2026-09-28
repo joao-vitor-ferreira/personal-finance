@@ -8,23 +8,23 @@ import { ThemedView } from '@/components/themed-view';
 import { Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 
-export function Collapsible({ children, title }: PropsWithChildren & { title: string }) {
+export function Collapsible({ children, title, isLast, isDesactiveIcon }: PropsWithChildren & { title: string, isLast?: boolean, isDesactiveIcon?: boolean }) {
   const [isOpen, setIsOpen] = useState(false);
   const theme = useTheme();
 
   return (
-    <ThemedView style={styles.themedView}>
+    <ThemedView style={isLast ? styles.themedViewWithoutBorder : styles.themedView }>
       <Pressable
         style={({ pressed }) => [styles.heading, pressed && styles.pressedHeading]}
         onPress={() => setIsOpen((value) => !value)}>
         <ThemedView type="backgroundElement" style={styles.button}>
-          <SymbolView
+          { !isDesactiveIcon && <SymbolView
             name={{ ios: 'chevron.right', android: 'chevron_right', web: 'chevron_right' }}
             size={14}
             weight="bold"
             tintColor={theme.text}
             style={{ transform: [{ rotate: isOpen ? '-90deg' : '90deg' }] }}
-          />
+          />}
         </ThemedView>
 
         <ThemedText type="small">{title}</ThemedText>
@@ -64,8 +64,13 @@ const styles = StyleSheet.create({
   },
   themedView: {
     borderBottomWidth: 1,
-    borderColor: 'black',
-    paddingBottom: 10,
+    borderColor: '#aaaaaa',
+    paddingBottom: Spacing.three,
+  },
+  themedViewWithoutBorder: {
+    borderBottomWidth: 0,
+    borderColor: '#aaaaaa',
+    paddingBottom: Spacing.three,
   },
   lastThemedView: {
     borderBottomWidth: 0,
